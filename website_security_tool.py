@@ -55,9 +55,6 @@ class WebsiteSecurityTool:
         style.configure('TFrame', background='#1a1a1a')
         style.configure('TLabel', background='#1a1a1a', foreground='white')
         
-        # Create gradient background
-        self.create_gradient_background()
-        
         # Create main container with rounded corners
         main_frame = tk.Frame(self.root, bg='#1a1a1a', relief='flat', bd=0)
         main_frame.pack(fill='both', expand=True, padx=15, pady=15)
@@ -90,19 +87,6 @@ class WebsiteSecurityTool:
         self.settings_frame = ttk.Frame(notebook)
         notebook.add(self.settings_frame, text="⚙️ Settings")
         self.setup_settings_tab()
-        
-    def create_gradient_background(self):
-        # Create animated gradient background
-        canvas = tk.Canvas(self.root, bg='#0a0a0a', highlightthickness=0)
-        canvas.place(relwidth=1, relheight=1)
-        
-        def animate_gradient():
-            colors = ['#1a1a1a', '#2a2a2a', '#1a1a1a']
-            for i, color in enumerate(colors):
-                canvas.configure(bg=color)
-                self.root.after(2000, lambda: animate_gradient() if i < len(colors)-1 else animate_gradient())
-        
-        animate_gradient()
         
     def setup_security_tab(self):
         # Main container with gradient
@@ -581,7 +565,7 @@ class WebsiteSecurityTool:
             self.progress_value = (self.progress_value + 1) % 100
             self.progress_bar.delete("all")
             
-            # Create animated progress bar
+            # Create simple progress bar without complex animations
             bar_width = 400
             bar_height = 8
             x = 10
@@ -591,19 +575,14 @@ class WebsiteSecurityTool:
             self.progress_bar.create_rectangle(x, y, x + bar_width, y + bar_height, 
                                             fill='#3c3c3c', outline='#3c3c3c')
             
-            # Animated progress
+            # Progress
             progress_width = int((self.progress_value / 100) * bar_width)
             if progress_width > 0:
                 self.progress_bar.create_rectangle(x, y, x + progress_width, y + bar_height, 
                                                 fill='#00ff88', outline='#00ff88')
             
-            # Animated dots
-            dot_pos = int((self.progress_value / 100) * bar_width)
-            if dot_pos > 0:
-                self.progress_bar.create_oval(dot_pos-3, y-1, dot_pos+3, y+bar_height+1, 
-                                           fill='#ffffff', outline='#ffffff')
-            
-            self.root.after(50, self.animate_progress)
+            # Use a longer delay to reduce CPU usage
+            self.root.after(100, self.animate_progress)
         
     def stop_progress_animation(self):
         self.animation_running = False
@@ -617,44 +596,62 @@ class WebsiteSecurityTool:
             
             domain = urlparse(url).netloc
             
+            # Set a timeout for the entire operation
+            start_time = time.time()
+            max_timeout = 30  # 30 seconds total timeout
+            
             self.root.after(0, lambda: self.progress_label.config(text="🔍 Checking VirusTotal..."))
             
-            # VirusTotal Check
+            # VirusTotal Check with timeout
             vt_result = self._check_virustotal(url)
+            if time.time() - start_time > max_timeout:
+                raise Exception("Operation timed out")
             
             self.root.after(0, lambda: self.progress_label.config(text="🔍 Checking URLScan..."))
             
-            # URLScan Check
+            # URLScan Check with timeout
             urlscan_result = self._check_urlscan(url)
+            if time.time() - start_time > max_timeout:
+                raise Exception("Operation timed out")
             
             self.root.after(0, lambda: self.progress_label.config(text="🔍 Checking PhishTank..."))
             
-            # PhishTank Check
+            # PhishTank Check with timeout
             phishtank_result = self._check_phishtank(url)
+            if time.time() - start_time > max_timeout:
+                raise Exception("Operation timed out")
             
             self.root.after(0, lambda: self.progress_label.config(text="🔍 Checking AbuseIPDB..."))
             
-            # AbuseIPDB Check
+            # AbuseIPDB Check with timeout
             abuseipdb_result = self._check_abuseipdb(domain)
+            if time.time() - start_time > max_timeout:
+                raise Exception("Operation timed out")
             
             self.root.after(0, lambda: self.progress_label.config(text="🔍 Checking ThreatFox..."))
             
-            # ThreatFox Check
+            # ThreatFox Check with timeout
             threatfox_result = self._check_threatfox(url)
+            if time.time() - start_time > max_timeout:
+                raise Exception("Operation timed out")
             
             self.root.after(0, lambda: self.progress_label.config(text="🔍 Checking URLHaus..."))
             
-            # URLHaus Check
+            # URLHaus Check with timeout
             urlhaus_result = self._check_urlhaus(url)
+            if time.time() - start_time > max_timeout:
+                raise Exception("Operation timed out")
             
             self.root.after(0, lambda: self.progress_label.config(text="🔍 Checking PhishStats..."))
             
-            # PhishStats Check
+            # PhishStats Check with timeout
             phishstats_result = self._check_phishtank(url)
+            if time.time() - start_time > max_timeout:
+                raise Exception("Operation timed out")
             
             self.root.after(0, lambda: self.progress_label.config(text="🔍 Checking Safe Browsing..."))
             
-            # Google Safe Browsing Check
+            # Google Safe Browsing Check with timeout
             safebrowsing_result = self._check_safebrowsing(url)
             
             # Compile results
@@ -676,6 +673,8 @@ class WebsiteSecurityTool:
             
         except Exception as e:
             self.root.after(0, lambda: self._show_error(f"Error checking website: {str(e)}"))
+            self.root.after(0, lambda: self.stop_progress_animation())
+            self.root.after(0, lambda: self.progress_label.config(text="❌ Analysis failed"))
             
     def _check_virustotal(self, url):
         try:
@@ -965,6 +964,11 @@ class WebsiteSecurityTool:
         # Stop animation
         self.stop_progress_animation()
         self.progress_label.config(text="✅ Enhanced analysis completed")
+        
+    def _show_error(self, message):
+        messagebox.showerror("Error", message)
+        self.stop_progress_animation()
+        self.progress_label.config(text="❌ Analysis failed")
         
     def browse_file(self):
         filename = filedialog.askopenfilename(

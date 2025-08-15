@@ -11,6 +11,7 @@ import threading
 import re
 import hashlib
 import base64
+import socket
 from datetime import datetime
 from urllib.parse import urlparse
 import time
@@ -763,7 +764,6 @@ class WebsiteSecurityTool:
     def _check_abuseipdb(self, domain):
         try:
             # Resolve domain to IP
-            import socket
             try:
                 ip = socket.gethostbyname(domain)
             except Exception:

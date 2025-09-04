@@ -1211,6 +1211,34 @@ class WebsiteSecurityTool:
         except Exception as e:
             return {'success': False, 'error': str(e)}
             
+    def _is_domain_malicious(self, domain):
+        """Lightweight risk assessment to decide if a domain should be blocked."""
+        try:
+            url = f"https://{domain}"
+            vt = self._check_virustotal(url)
+            phishtank = self._check_phishtank(url)
+            urlhaus = self._check_urlhaus(url)
+            threatfox = self._check_threatfox(url)
+            abuseipdb = self._check_abuseipdb(domain)
+
+            threat_score = 0
+
+            if vt.get('success') and vt.get('positives', 0) >= 2:
+                threat_score += 2
+            if phishtank.get('success') and phishtank.get('in_database') and phishtank.get('verified'):
+                threat_score += 2
+            if urlhaus.get('success') and urlhaus.get('found'):
+                threat_score += 2
+            if threatfox.get('success') and threatfox.get('found'):
+                threat_score += 2
+            if abuseipdb.get('success') and abuseipdb.get('abuse_confidence', 0) >= 80:
+                threat_score += 1
+
+            return threat_score >= 2
+        except Exception:
+            # On errors, do not assume malicious
+            return False
+            
     def block_website(self):
         website = self.website_entry.get().strip()
         password = self.password_entry.get()
@@ -1231,6 +1259,14 @@ class WebsiteSecurityTool:
         domain = self._clean_domain(website)
         if not domain:
             messagebox.showerror("Error", "Invalid domain format")
+            return
+        
+        # Only block if the domain is assessed as malicious
+        self.block_status_label.config(text="⏳ Assessing risk...")
+        self.root.update()
+        if not self._is_domain_malicious(domain):
+            messagebox.showinfo("Not Malicious", f"{domain} does not appear malicious. Blocking skipped.")
+            self.block_status_label.config(text=f"ℹ️ {domain} not blocked (appears safe)")
             return
             
         # Determine the path of the hosts file based on the operating system

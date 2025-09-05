@@ -19,7 +19,7 @@ import time
 class WebsiteSecurityTool:
     def __init__(self, root):
         self.root = root
-        self.root.title("🛡️ Advanced Security & Threat Detection Tool")
+        self.root.title("🛡️ Block Malicious Websites")
         self.root.geometry("1200x800")
         self.root.configure(bg='#0a0a0a')
         

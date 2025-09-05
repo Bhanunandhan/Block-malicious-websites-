@@ -42,6 +42,10 @@ class WebsiteSecurityTool:
         self.checked_urls = {}
         self.checked_files = {}
         
+        # Whitelist for trusted domains
+        self.whitelist = set()
+        self.load_whitelist()
+        
         # Animation variables
         self.animation_running = False
         self.progress_value = 0
@@ -359,7 +363,12 @@ class WebsiteSecurityTool:
         # General Settings Tab
         general_frame = ttk.Frame(settings_notebook)
         settings_notebook.add(general_frame, text="🔧 General Settings")
-        self.setup_general_settings_tab(general_frame) 
+        self.setup_general_settings_tab(general_frame)
+        
+        # Whitelist Management Tab
+        whitelist_frame = ttk.Frame(settings_notebook)
+        settings_notebook.add(whitelist_frame, text="✅ Whitelist Management")
+        self.setup_whitelist_tab(whitelist_frame) 
 
     def setup_api_config_tab(self, parent):
         # Main container
@@ -491,9 +500,9 @@ class WebsiteSecurityTool:
 🚫 INTELLIGENT BLOCKING LOGIC:
 • Smart malicious website detection before blocking
 • Multi-API threat assessment (VirusTotal, PhishTank, URLHaus, ThreatFox, AbuseIPDB)
-• Threat scoring system (0-10 scale)
-• Only blocks websites with threat score ≥ 2
-• Force block option for legitimate sites (with warnings)
+• Enhanced threat scoring system (0-10 scale)
+• Only blocks websites with threat score ≥ 3 or critical threats
+• Safe websites are never blocked automatically
 • Detailed threat analysis and user feedback
 • Can now block/unblock/block again
 • Proper domain validation
@@ -501,6 +510,7 @@ class WebsiteSecurityTool:
 • Exact matching for unblocking
 • Status feedback for all operations
 • Enhanced error handling
+• Whitelist system for trusted domains
 
 📁 NEW FILE SCANNER:
 • Malware detection
@@ -543,6 +553,89 @@ class WebsiteSecurityTool:
         general_text.pack(fill='both', expand=True)
         general_text.insert(tk.END, general_info)
         general_text.config(state='disabled')
+        
+    def setup_whitelist_tab(self, parent):
+        # Main container
+        main_container = tk.Frame(parent, bg='#2b2b2b')
+        main_container.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        # Title
+        title_label = tk.Label(main_container, text="✅ Trusted Domain Whitelist", 
+                              font=("Segoe UI", 16, "bold"), fg="#00ff88", bg="#2b2b2b")
+        title_label.pack(pady=(0, 20))
+        
+        # Description
+        desc_label = tk.Label(main_container, text="Manage trusted domains that will bypass security checks", 
+                             font=("Segoe UI", 12), fg="#888888", bg="#2b2b2b")
+        desc_label.pack(pady=(0, 20))
+        
+        # Add domain section
+        add_frame = tk.Frame(main_container, bg='#2b2b2b')
+        add_frame.pack(fill='x', pady=10)
+        
+        add_label = tk.Label(add_frame, text="Add Trusted Domain:", 
+                            font=("Segoe UI", 12, "bold"), fg="#00ff88", bg="#2b2b2b")
+        add_label.pack(anchor='w')
+        
+        add_entry_frame = tk.Frame(add_frame, bg='#2b2b2b')
+        add_entry_frame.pack(fill='x', pady=5)
+        
+        self.whitelist_entry = tk.Entry(add_entry_frame, width=50, font=("Segoe UI", 11), 
+                                       bg='#3c3c3c', fg='white', insertbackground='#00ff88',
+                                       relief='flat', bd=5)
+        self.whitelist_entry.pack(side='left', fill='x', expand=True, padx=(0, 10))
+        
+        add_button = tk.Button(add_entry_frame, text="➕ Add", 
+                              command=self.add_to_whitelist, bg="#00ff88", fg="black",
+                              font=("Segoe UI", 10, "bold"), padx=15, pady=5,
+                              relief='flat', cursor='hand2')
+        add_button.pack(side='right')
+        
+        # Remove domain section
+        remove_frame = tk.Frame(main_container, bg='#2b2b2b')
+        remove_frame.pack(fill='x', pady=10)
+        
+        remove_label = tk.Label(remove_frame, text="Remove Trusted Domain:", 
+                               font=("Segoe UI", 12, "bold"), fg="#ff4757", bg="#2b2b2b")
+        remove_label.pack(anchor='w')
+        
+        remove_entry_frame = tk.Frame(remove_frame, bg='#2b2b2b')
+        remove_entry_frame.pack(fill='x', pady=5)
+        
+        self.remove_whitelist_entry = tk.Entry(remove_entry_frame, width=50, font=("Segoe UI", 11), 
+                                              bg='#3c3c3c', fg='white', insertbackground='#ff4757',
+                                              relief='flat', bd=5)
+        self.remove_whitelist_entry.pack(side='left', fill='x', expand=True, padx=(0, 10))
+        
+        remove_button = tk.Button(remove_entry_frame, text="➖ Remove", 
+                                 command=self.remove_from_whitelist, bg="#ff4757", fg="white",
+                                 font=("Segoe UI", 10, "bold"), padx=15, pady=5,
+                                 relief='flat', cursor='hand2')
+        remove_button.pack(side='right')
+        
+        # Whitelist display
+        list_frame = tk.Frame(main_container, bg='#2b2b2b')
+        list_frame.pack(fill='both', expand=True, pady=20)
+        
+        list_label = tk.Label(list_frame, text="Current Whitelist:", 
+                             font=("Segoe UI", 12, "bold"), fg="#ffa502", bg="#2b2b2b")
+        list_label.pack(anchor='w')
+        
+        self.whitelist_text = scrolledtext.ScrolledText(list_frame, height=15, width=70, 
+                                                       font=("Consolas", 10), bg="#1a1a1a", 
+                                                       fg="#e0e0e0", insertbackground='#00ff88',
+                                                       relief='flat', borderwidth=0)
+        self.whitelist_text.pack(fill='both', expand=True, pady=5)
+        
+        # Refresh button
+        refresh_whitelist_button = tk.Button(main_container, text="🔄 Refresh Whitelist", 
+                                            command=self.refresh_whitelist_display, bg="#ffa502", fg="white",
+                                            font=("Segoe UI", 11, "bold"), padx=20, pady=8,
+                                            relief='flat', cursor='hand2')
+        refresh_whitelist_button.pack(pady=10)
+        
+        # Load initial whitelist display
+        self.refresh_whitelist_display()
         
     def check_site(self):
         url = self.url_entry.get().strip()
@@ -1218,8 +1311,12 @@ class WebsiteSecurityTool:
             return {'success': False, 'error': str(e)}
             
     def _is_domain_malicious(self, domain):
-        """Lightweight risk assessment to decide if a domain should be blocked."""
+        """Enhanced risk assessment to decide if a domain should be blocked."""
         try:
+            # Check whitelist first - if domain is whitelisted, it's never malicious
+            if domain.lower() in self.whitelist:
+                return False
+                
             url = f"https://{domain}"
             vt = self._check_virustotal(url)
             phishtank = self._check_phishtank(url)
@@ -1228,19 +1325,49 @@ class WebsiteSecurityTool:
             abuseipdb = self._check_abuseipdb(domain)
 
             threat_score = 0
+            critical_threats = 0
 
-            if vt.get('success') and vt.get('positives', 0) >= 2:
-                threat_score += 2
-            if phishtank.get('success') and phishtank.get('in_database') and phishtank.get('verified'):
-                threat_score += 2
+            # VirusTotal - weighted heavily for accuracy
+            if vt.get('success') and vt.get('positives', 0) > 0:
+                positives = vt.get('positives', 0)
+                if positives >= 5:  # High confidence
+                    threat_score += 3
+                    critical_threats += 1
+                elif positives >= 2:  # Medium confidence
+                    threat_score += 2
+                else:  # Low confidence
+                    threat_score += 1
+
+            # PhishTank - verified phishing is critical
+            if phishtank.get('success') and phishtank.get('in_database'):
+                if phishtank.get('verified'):
+                    threat_score += 3
+                    critical_threats += 1
+                else:
+                    threat_score += 1
+
+            # URLHaus - malicious URL database
             if urlhaus.get('success') and urlhaus.get('found'):
                 threat_score += 2
+                critical_threats += 1
+
+            # ThreatFox - malware detection
             if threatfox.get('success') and threatfox.get('found'):
                 threat_score += 2
-            if abuseipdb.get('success') and abuseipdb.get('abuse_confidence', 0) >= 80:
-                threat_score += 1
+                critical_threats += 1
 
-            return threat_score >= 2
+            # AbuseIPDB - IP reputation
+            if abuseipdb.get('success'):
+                confidence = abuseipdb.get('abuse_confidence', 0)
+                if confidence >= 90:  # Very high confidence
+                    threat_score += 2
+                    critical_threats += 1
+                elif confidence >= 70:  # High confidence
+                    threat_score += 1
+
+            # Enhanced decision logic
+            # Block if: critical threats OR high threat score
+            return critical_threats > 0 or threat_score >= 3
         except Exception:
             # On errors, do not assume malicious
             return False
@@ -1248,6 +1375,24 @@ class WebsiteSecurityTool:
     def _get_detailed_threat_assessment(self, domain):
         """Get detailed threat assessment with individual service results."""
         try:
+            # Check whitelist first - if domain is whitelisted, it's never malicious
+            if domain.lower() in self.whitelist:
+                return {
+                    'is_malicious': False,
+                    'threat_score': 0,
+                    'critical_threats': 0,
+                    'whitelisted': True,
+                    'virustotal_safe': True,
+                    'phishtank_safe': True,
+                    'urlhaus_safe': True,
+                    'threatfox_safe': True,
+                    'abuseipdb_safe': True,
+                    'vt_positives': 0,
+                    'abuse_confidence': 0,
+                    'vt_high_confidence': False,
+                    'phishtank_verified': False
+                }
+                
             url = f"https://{domain}"
             vt = self._check_virustotal(url)
             phishtank = self._check_phishtank(url)
@@ -1256,44 +1401,81 @@ class WebsiteSecurityTool:
             abuseipdb = self._check_abuseipdb(domain)
 
             threat_score = 0
+            critical_threats = 0
             vt_positives = vt.get('positives', 0)
             abuse_confidence = abuseipdb.get('abuse_confidence', 0)
 
-            # Calculate threat score
-            if vt.get('success') and vt_positives >= 2:
-                threat_score += 2
-            if phishtank.get('success') and phishtank.get('in_database') and phishtank.get('verified'):
-                threat_score += 2
+            # Calculate threat score using enhanced logic
+            # VirusTotal - weighted heavily for accuracy
+            if vt.get('success') and vt_positives > 0:
+                if vt_positives >= 5:  # High confidence
+                    threat_score += 3
+                    critical_threats += 1
+                elif vt_positives >= 2:  # Medium confidence
+                    threat_score += 2
+                else:  # Low confidence
+                    threat_score += 1
+
+            # PhishTank - verified phishing is critical
+            if phishtank.get('success') and phishtank.get('in_database'):
+                if phishtank.get('verified'):
+                    threat_score += 3
+                    critical_threats += 1
+                else:
+                    threat_score += 1
+
+            # URLHaus - malicious URL database
             if urlhaus.get('success') and urlhaus.get('found'):
                 threat_score += 2
+                critical_threats += 1
+
+            # ThreatFox - malware detection
             if threatfox.get('success') and threatfox.get('found'):
                 threat_score += 2
-            if abuseipdb.get('success') and abuse_confidence >= 80:
-                threat_score += 1
+                critical_threats += 1
+
+            # AbuseIPDB - IP reputation
+            if abuseipdb.get('success'):
+                if abuse_confidence >= 90:  # Very high confidence
+                    threat_score += 2
+                    critical_threats += 1
+                elif abuse_confidence >= 70:  # High confidence
+                    threat_score += 1
+
+            # Enhanced decision logic
+            is_malicious = critical_threats > 0 or threat_score >= 3
 
             return {
-                'is_malicious': threat_score >= 2,
+                'is_malicious': is_malicious,
                 'threat_score': threat_score,
-                'virustotal_safe': not (vt.get('success') and vt_positives >= 2),
-                'phishtank_safe': not (phishtank.get('success') and phishtank.get('in_database') and phishtank.get('verified')),
+                'critical_threats': critical_threats,
+                'whitelisted': False,
+                'virustotal_safe': not (vt.get('success') and vt_positives > 0),
+                'phishtank_safe': not (phishtank.get('success') and phishtank.get('in_database')),
                 'urlhaus_safe': not (urlhaus.get('success') and urlhaus.get('found')),
                 'threatfox_safe': not (threatfox.get('success') and threatfox.get('found')),
-                'abuseipdb_safe': not (abuseipdb.get('success') and abuse_confidence >= 80),
+                'abuseipdb_safe': not (abuseipdb.get('success') and abuse_confidence >= 70),
                 'vt_positives': vt_positives,
-                'abuse_confidence': abuse_confidence
+                'abuse_confidence': abuse_confidence,
+                'vt_high_confidence': vt.get('success') and vt_positives >= 5,
+                'phishtank_verified': phishtank.get('success') and phishtank.get('in_database') and phishtank.get('verified')
             }
         except Exception:
             # On errors, assume safe
             return {
                 'is_malicious': False,
                 'threat_score': 0,
+                'critical_threats': 0,
+                'whitelisted': False,
                 'virustotal_safe': True,
                 'phishtank_safe': True,
                 'urlhaus_safe': True,
                 'threatfox_safe': True,
                 'abuseipdb_safe': True,
                 'vt_positives': 0,
-                'abuse_confidence': 0
+                'abuse_confidence': 0,
+                'vt_high_confidence': False,
+                'phishtank_verified': False
             }
             
     def block_website(self):
@@ -1325,7 +1507,17 @@ class WebsiteSecurityTool:
         # Get detailed threat assessment
         threat_assessment = self._get_detailed_threat_assessment(domain)
         if not threat_assessment['is_malicious']:
-            # Show popup that website is safe and will not be blocked
+            # Check if domain is whitelisted
+            if threat_assessment.get('whitelisted', False):
+                messagebox.showinfo("Domain is Whitelisted", 
+                    f"🌐 {domain}\n\n"
+                    f"✅ This domain is in your trusted whitelist\n\n"
+                    f"🛡️ Whitelisted domains bypass all security checks\n\n"
+                    f"ℹ️ This website will NOT be blocked.")
+                
+                self.block_status_label.config(text=f"ℹ️ {domain} not blocked (whitelisted)")
+                return
+            # Show popup that website is safe and offer force block option
             safe_reasons = []
             if threat_assessment['virustotal_safe']:
                 safe_reasons.append("✅ Clean on VirusTotal")
@@ -1352,12 +1544,18 @@ class WebsiteSecurityTool:
             self.block_status_label.config(text=f"ℹ️ {domain} not blocked (appears safe)")
             return
         else:
-            # Automatically block malicious websites without asking
+            # Automatically block malicious websites
             threat_reasons = []
             if not threat_assessment['virustotal_safe']:
-                threat_reasons.append(f"🚨 VirusTotal: {threat_assessment['vt_positives']} engines detected threats")
+                if threat_assessment['vt_high_confidence']:
+                    threat_reasons.append(f"🚨 VirusTotal: {threat_assessment['vt_positives']} engines detected threats (HIGH CONFIDENCE)")
+                else:
+                    threat_reasons.append(f"🚨 VirusTotal: {threat_assessment['vt_positives']} engines detected threats")
             if not threat_assessment['phishtank_safe']:
-                threat_reasons.append("🚨 PhishTank: Verified phishing site")
+                if threat_assessment['phishtank_verified']:
+                    threat_reasons.append("🚨 PhishTank: VERIFIED phishing site")
+                else:
+                    threat_reasons.append("🚨 PhishTank: Found in phishing database")
             if not threat_assessment['urlhaus_safe']:
                 threat_reasons.append("🚨 URLHaus: Found in malicious database")
             if not threat_assessment['threatfox_safe']:
@@ -1371,7 +1569,8 @@ class WebsiteSecurityTool:
             messagebox.showwarning("🚨 MALICIOUS WEBSITE DETECTED!", 
                 f"🌐 {domain}\n\n"
                 f"🛡️ Security Assessment: MALICIOUS\n\n"
-                f"📊 Threat Score: {threat_assessment['threat_score']}/10\n\n"
+                f"📊 Threat Score: {threat_assessment['threat_score']}/10\n"
+                f"🚨 Critical Threats: {threat_assessment['critical_threats']}\n\n"
                 f"🚨 Threats Detected:\n{reasons_text}\n\n"
                 f"🛡️ This website is being BLOCKED for your safety!")
             
@@ -1549,6 +1748,93 @@ class WebsiteSecurityTool:
             self.blocked_sites_text.delete(1.0, tk.END)
             self.blocked_sites_text.insert(tk.END, f"❌ Error reading hosts file: {str(e)}")
             self.view_status_label.config(text="❌ Error occurred")
+            
+    def load_whitelist(self):
+        """Load whitelist from file"""
+        try:
+            whitelist_file = "whitelist.txt"
+            if os.path.exists(whitelist_file):
+                with open(whitelist_file, 'r') as f:
+                    for line in f:
+                        domain = line.strip().lower()
+                        if domain and not domain.startswith('#'):
+                            self.whitelist.add(domain)
+        except Exception:
+            pass  # If file doesn't exist or can't be read, start with empty whitelist
+            
+    def save_whitelist(self):
+        """Save whitelist to file"""
+        try:
+            whitelist_file = "whitelist.txt"
+            with open(whitelist_file, 'w') as f:
+                f.write("# Trusted Domain Whitelist\n")
+                f.write("# Domains in this list will bypass security checks\n\n")
+                for domain in sorted(self.whitelist):
+                    f.write(f"{domain}\n")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save whitelist: {str(e)}")
+            
+    def add_to_whitelist(self):
+        """Add domain to whitelist"""
+        domain = self.whitelist_entry.get().strip().lower()
+        if not domain:
+            messagebox.showwarning("Warning", "Please enter a domain")
+            return
+            
+        # Clean and validate domain
+        clean_domain = self._clean_domain(domain)
+        if not clean_domain:
+            messagebox.showerror("Error", "Invalid domain format")
+            return
+            
+        if clean_domain in self.whitelist:
+            messagebox.showinfo("Info", f"{clean_domain} is already in the whitelist")
+            return
+            
+        self.whitelist.add(clean_domain)
+        self.save_whitelist()
+        self.refresh_whitelist_display()
+        self.whitelist_entry.delete(0, tk.END)
+        messagebox.showinfo("Success", f"✅ Added {clean_domain} to whitelist")
+        
+    def remove_from_whitelist(self):
+        """Remove domain from whitelist"""
+        domain = self.remove_whitelist_entry.get().strip().lower()
+        if not domain:
+            messagebox.showwarning("Warning", "Please enter a domain")
+            return
+            
+        # Clean and validate domain
+        clean_domain = self._clean_domain(domain)
+        if not clean_domain:
+            messagebox.showerror("Error", "Invalid domain format")
+            return
+            
+        if clean_domain not in self.whitelist:
+            messagebox.showinfo("Info", f"{clean_domain} is not in the whitelist")
+            return
+            
+        self.whitelist.discard(clean_domain)
+        self.save_whitelist()
+        self.refresh_whitelist_display()
+        self.remove_whitelist_entry.delete(0, tk.END)
+        messagebox.showinfo("Success", f"✅ Removed {clean_domain} from whitelist")
+        
+    def refresh_whitelist_display(self):
+        """Refresh the whitelist display"""
+        self.whitelist_text.delete(1.0, tk.END)
+        self.whitelist_text.insert(tk.END, "✅ TRUSTED DOMAIN WHITELIST\n")
+        self.whitelist_text.insert(tk.END, "=" * 50 + "\n\n")
+        
+        if not self.whitelist:
+            self.whitelist_text.insert(tk.END, "📝 No domains in whitelist\n")
+            self.whitelist_text.insert(tk.END, "ℹ️ Add trusted domains to bypass security checks\n")
+        else:
+            for i, domain in enumerate(sorted(self.whitelist), 1):
+                self.whitelist_text.insert(tk.END, f"{i:2d}. ✅ {domain}\n")
+                
+        self.whitelist_text.insert(tk.END, f"\n📊 Total trusted domains: {len(self.whitelist)}\n")
+        self.whitelist_text.insert(tk.END, f"ℹ️ These domains will bypass all security checks\n")
 
 def main():
     root = tk.Tk()

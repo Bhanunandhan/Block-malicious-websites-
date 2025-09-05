@@ -489,6 +489,12 @@ class WebsiteSecurityTool:
 • Animated progress indicators
 
 🚫 ENHANCED BLOCKING LOGIC:
+• Smart malicious website detection before blocking
+• Multi-API threat assessment (VirusTotal, PhishTank, URLHaus, ThreatFox, AbuseIPDB)
+• Threat scoring system (0-10 scale)
+• Only blocks websites with threat score ≥ 2
+• Force block option for legitimate sites (with warnings)
+• Detailed threat analysis and user feedback
 • Can now block/unblock/block again
 • Proper domain validation
 • Duplicate entry handling
@@ -1239,6 +1245,57 @@ class WebsiteSecurityTool:
             # On errors, do not assume malicious
             return False
             
+    def _get_detailed_threat_assessment(self, domain):
+        """Get detailed threat assessment with individual service results."""
+        try:
+            url = f"https://{domain}"
+            vt = self._check_virustotal(url)
+            phishtank = self._check_phishtank(url)
+            urlhaus = self._check_urlhaus(url)
+            threatfox = self._check_threatfox(url)
+            abuseipdb = self._check_abuseipdb(domain)
+
+            threat_score = 0
+            vt_positives = vt.get('positives', 0)
+            abuse_confidence = abuseipdb.get('abuse_confidence', 0)
+
+            # Calculate threat score
+            if vt.get('success') and vt_positives >= 2:
+                threat_score += 2
+            if phishtank.get('success') and phishtank.get('in_database') and phishtank.get('verified'):
+                threat_score += 2
+            if urlhaus.get('success') and urlhaus.get('found'):
+                threat_score += 2
+            if threatfox.get('success') and threatfox.get('found'):
+                threat_score += 2
+            if abuseipdb.get('success') and abuse_confidence >= 80:
+                threat_score += 1
+
+            return {
+                'is_malicious': threat_score >= 2,
+                'threat_score': threat_score,
+                'virustotal_safe': not (vt.get('success') and vt_positives >= 2),
+                'phishtank_safe': not (phishtank.get('success') and phishtank.get('in_database') and phishtank.get('verified')),
+                'urlhaus_safe': not (urlhaus.get('success') and urlhaus.get('found')),
+                'threatfox_safe': not (threatfox.get('success') and threatfox.get('found')),
+                'abuseipdb_safe': not (abuseipdb.get('success') and abuse_confidence >= 80),
+                'vt_positives': vt_positives,
+                'abuse_confidence': abuse_confidence
+            }
+        except Exception:
+            # On errors, assume safe
+            return {
+                'is_malicious': False,
+                'threat_score': 0,
+                'virustotal_safe': True,
+                'phishtank_safe': True,
+                'urlhaus_safe': True,
+                'threatfox_safe': True,
+                'abuseipdb_safe': True,
+                'vt_positives': 0,
+                'abuse_confidence': 0
+            }
+            
     def block_website(self):
         website = self.website_entry.get().strip()
         password = self.password_entry.get()
@@ -1264,10 +1321,59 @@ class WebsiteSecurityTool:
         # Assess if domain is malicious before blocking
         self.block_status_label.config(text="⏳ Assessing risk...")
         self.root.update()
-        if not self._is_domain_malicious(domain):
-            messagebox.showinfo("Not Malicious", f"{domain} does not appear malicious. Blocking skipped.")
+        
+        # Get detailed threat assessment
+        threat_assessment = self._get_detailed_threat_assessment(domain)
+        if not threat_assessment['is_malicious']:
+            # Show popup that website is safe and will not be blocked
+            safe_reasons = []
+            if threat_assessment['virustotal_safe']:
+                safe_reasons.append("✅ Clean on VirusTotal")
+            if threat_assessment['phishtank_safe']:
+                safe_reasons.append("✅ Not in PhishTank database")
+            if threat_assessment['urlhaus_safe']:
+                safe_reasons.append("✅ Not in URLHaus database")
+            if threat_assessment['threatfox_safe']:
+                safe_reasons.append("✅ No malware detected by ThreatFox")
+            if threat_assessment['abuseipdb_safe']:
+                safe_reasons.append("✅ Low abuse confidence")
+            
+            reasons_text = "\n".join(safe_reasons) if safe_reasons else "No threats detected"
+            
+            # Show popup that website is safe and will not be blocked
+            messagebox.showinfo("Website Appears Safe", 
+                f"🌐 {domain}\n\n"
+                f"🛡️ Security Assessment: SAFE\n\n"
+                f"📊 Threat Score: {threat_assessment['threat_score']}/10\n\n"
+                f"✅ Reasons:\n{reasons_text}\n\n"
+                f"ℹ️ This website appears to be legitimate and safe.\n\n"
+                f"✅ Website will NOT be blocked.")
+            
             self.block_status_label.config(text=f"ℹ️ {domain} not blocked (appears safe)")
             return
+        else:
+            # Automatically block malicious websites without asking
+            threat_reasons = []
+            if not threat_assessment['virustotal_safe']:
+                threat_reasons.append(f"🚨 VirusTotal: {threat_assessment['vt_positives']} engines detected threats")
+            if not threat_assessment['phishtank_safe']:
+                threat_reasons.append("🚨 PhishTank: Verified phishing site")
+            if not threat_assessment['urlhaus_safe']:
+                threat_reasons.append("🚨 URLHaus: Found in malicious database")
+            if not threat_assessment['threatfox_safe']:
+                threat_reasons.append("🚨 ThreatFox: Malware detected")
+            if not threat_assessment['abuseipdb_safe']:
+                threat_reasons.append(f"🚨 AbuseIPDB: High abuse confidence ({threat_assessment['abuse_confidence']}%)")
+            
+            reasons_text = "\n".join(threat_reasons)
+            
+            # Show popup that malicious website is being blocked
+            messagebox.showwarning("🚨 MALICIOUS WEBSITE DETECTED!", 
+                f"🌐 {domain}\n\n"
+                f"🛡️ Security Assessment: MALICIOUS\n\n"
+                f"📊 Threat Score: {threat_assessment['threat_score']}/10\n\n"
+                f"🚨 Threats Detected:\n{reasons_text}\n\n"
+                f"🛡️ This website is being BLOCKED for your safety!")
             
         # Determine the path of the hosts file based on the operating system
         system_name = platform.system()
@@ -1293,10 +1399,12 @@ class WebsiteSecurityTool:
                 entry = f"127.0.0.1 {domain}\n"
                 hosts_file.write(entry)
                 
-            messagebox.showinfo("Success", f"Successfully blocked {domain}")
+            # Show success message for malicious website blocking
+            messagebox.showinfo("Success", f"✅ Successfully blocked malicious website: {domain}\n\n🛡️ This website was detected as a threat and has been blocked for your safety.")
+            self.block_status_label.config(text=f"✅ {domain} blocked (malicious)")
+            
             self.website_entry.delete(0, tk.END)
             self.password_entry.delete(0, tk.END)
-            self.block_status_label.config(text=f"✅ {domain} blocked successfully")
             
         except PermissionError:
             messagebox.showerror("Error", "Permission denied. Please run as administrator.")

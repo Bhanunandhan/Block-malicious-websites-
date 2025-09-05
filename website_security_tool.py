@@ -110,6 +110,13 @@ class WebsiteSecurityTool:
                                 font=("Segoe UI", 12), fg="#888888", bg="#2b2b2b")
         subtitle_label.pack()
         
+        # Project Info button under the title
+        project_info_button = tk.Button(title_frame, text="PROJECT INFO", 
+                                       command=self.open_project_info, bg="#00ff88", fg="black",
+                                       font=("Segoe UI", 10, "bold"), padx=12, pady=6,
+                                       relief='flat', cursor='hand2', bd=0)
+        project_info_button.pack(pady=(10, 0))
+        
         # URL Entry Section with enhanced styling
         url_frame = tk.Frame(main_container, bg='#2b2b2b')
         url_frame.pack(fill='x', pady=15)
@@ -950,6 +957,16 @@ class WebsiteSecurityTool:
         messagebox.showerror("Error", message)
         self.stop_progress_animation()
         self.progress_label.config(text="❌ Analysis failed")
+        
+    def open_project_info(self):
+        try:
+            html_path = os.path.abspath("project_info.html")
+            if not os.path.exists(html_path):
+                messagebox.showerror("Error", "project_info.html not found")
+                return
+            webbrowser.open_new_tab(f"file:///{html_path.replace(os.sep, '/')}" )
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open project info: {str(e)}")
         
     def browse_file(self):
         filename = filedialog.askopenfilename(

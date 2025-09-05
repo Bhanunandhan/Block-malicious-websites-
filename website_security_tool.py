@@ -488,7 +488,7 @@ class WebsiteSecurityTool:
 • Threaded operations for responsive UI
 • Animated progress indicators
 
-🚫 ENHANCED BLOCKING LOGIC:
+🚫 INTELLIGENT BLOCKING LOGIC:
 • Smart malicious website detection before blocking
 • Multi-API threat assessment (VirusTotal, PhishTank, URLHaus, ThreatFox, AbuseIPDB)
 • Threat scoring system (0-10 scale)
